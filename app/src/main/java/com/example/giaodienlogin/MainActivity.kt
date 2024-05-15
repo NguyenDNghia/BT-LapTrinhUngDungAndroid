@@ -5,6 +5,7 @@ package com.example.giaodienlogin
 import android.annotation.SuppressLint
 import com.example.giaodienlogin.ui.theme.GiaoDienLoginTheme
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -17,6 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 
 class MainActivity : ComponentActivity() {
@@ -40,11 +44,15 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AuthenticationScreen(dbHelper: DBHelper) {
     var currentScreen by remember { mutableStateOf(Screen.Login) }
+    var username by remember { mutableStateOf("") }  // Store the username here to pass it to MainScreen
 
     when (currentScreen) {
         Screen.Login -> LoginScreen(
             dbHelper = dbHelper,
-            onLoginSuccess = { currentScreen = Screen.Main },
+            onLoginSuccess = { loggedInUsername ->
+                username = loggedInUsername  // Update the stored username when login is successful
+                currentScreen = Screen.Main
+            },
             onNavigateToRegister = { currentScreen = Screen.Register }
         )
         Screen.Register -> RegisterScreen(
@@ -52,7 +60,11 @@ fun AuthenticationScreen(dbHelper: DBHelper) {
             onRegisterSuccess = { currentScreen = Screen.Login }
         )
         Screen.Main -> MainScreen(
-            onLogout = { currentScreen = Screen.Login }
+            userName = username,  // Pass the stored username to MainScreen
+            onLogout = {
+                username = ""  // Clear the username upon logout
+                currentScreen = Screen.Login
+            }
         )
     }
 }
@@ -60,7 +72,7 @@ fun AuthenticationScreen(dbHelper: DBHelper) {
 @Composable
 fun LoginScreen(
     dbHelper: DBHelper,
-    onLoginSuccess: () -> Unit,
+    onLoginSuccess: (String) -> Unit,
     onNavigateToRegister: () -> Unit
 ) {
     var username by remember { mutableStateOf("") }
@@ -102,7 +114,7 @@ fun LoginScreen(
         Button(
             onClick = {
                 if (dbHelper.validateUser(username, password)) {
-                    onLoginSuccess()
+                    onLoginSuccess(username)  // Pass the username back to the AuthenticationScreen
                 } else {
                     loginError = true
                 }
@@ -128,6 +140,7 @@ fun RegisterScreen(
 ) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
     var registerError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
@@ -139,14 +152,14 @@ fun RegisterScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (registerError) {
-            Text("Registration failed. User may already exist.", color = Color.Red)
+            Text(errorMessage, color = Color.Red)
         }
 
         OutlinedTextField(
             value = username,
             onValueChange = { username = it },
             label = { Text("Username") },
-            colors = OutlinedTextFieldDefaults.colors(
+            colors = TextFieldDefaults.outlinedTextFieldColors(
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
             )
@@ -157,7 +170,17 @@ fun RegisterScreen(
             onValueChange = { password = it },
             label = { Text("Password") },
             visualTransformation = PasswordVisualTransformation(),
-            colors = OutlinedTextFieldDefaults.colors(
+            colors = TextFieldDefaults.outlinedTextFieldColors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+            )
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("Email") },
+            colors = TextFieldDefaults.outlinedTextFieldColors(
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
             )
@@ -165,17 +188,30 @@ fun RegisterScreen(
         Spacer(modifier = Modifier.height(24.dp))
         Button(
             onClick = {
-                if (dbHelper.checkUserExists(username)) {
-                    errorMessage = "Username already exists. Please try another one."
+                if (username.isBlank() || password.isBlank() || email.isBlank()) {
+                    errorMessage = "All fields must be filled out."
                     registerError = true
-
+                } else if (!isValidEmail(email)) {
+                    errorMessage = "Please enter a valid email address."
+                    registerError = true
                 } else {
-                    if (dbHelper.addUser(username, password)) {
-                        onRegisterSuccess()
-
-                    } else {
-                        errorMessage = "Registration failed. Please try again."
-                        registerError = true
+                    CoroutineScope(Dispatchers.Main).launch {
+                        if (dbHelper.checkUserExists(username) || dbHelper.checkEmailExists(email)) {
+                            if (dbHelper.checkUserExists(username)) {
+                                errorMessage = "Username already exists. Please try another one."
+                            } else {
+                                errorMessage = "Email already exists. Please try another one."
+                            }
+                            registerError = true
+                        } else {
+                            val added = dbHelper.addUser(username, password, email)
+                            if (added) {
+                                onRegisterSuccess()
+                            } else {
+                                errorMessage = "Registration failed. Please try again."
+                                registerError = true
+                            }
+                        }
                     }
                 }
             },
@@ -189,15 +225,19 @@ fun RegisterScreen(
     }
 }
 
+fun isValidEmail(email: String): Boolean {
+    return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
-fun MainScreen(onLogout: () -> Unit) {
+fun MainScreen(userName: String, onLogout: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Welcome") },
+                title = { Text("Welcome, $userName") },  // Displaying the user's name in the AppBar title
                 actions = {
                     IconButton(onClick = onLogout) {
                         Icon(Icons.Filled.ExitToApp, contentDescription = "Logout")
@@ -207,7 +247,8 @@ fun MainScreen(onLogout: () -> Unit) {
         }
     ) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("You are logged in!", style = MaterialTheme.typography.headlineMedium)
+            // Greeting message includes the user's name
+            Text("You are logged in as $userName!", style = MaterialTheme.typography.headlineMedium)
         }
     }
 }
