@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import com.google.firebase.database.FirebaseDatabase
 
 
 class MainActivity : ComponentActivity() {
@@ -224,6 +225,7 @@ fun RegisterScreen(
         }
     }
 }
+
 
 fun isValidEmail(email: String): Boolean {
     return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()

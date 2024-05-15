@@ -7,6 +7,8 @@ import android.database.sqlite.SQLiteOpenHelper
 import android.util.Log
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 
 class DBHelper(context: Context) : SQLiteOpenHelper(context, "user.db", null, 1) {
     override fun onCreate(db: SQLiteDatabase) {
@@ -27,9 +29,10 @@ class DBHelper(context: Context) : SQLiteOpenHelper(context, "user.db", null, 1)
 
     suspend fun addUser(username: String, password: String, email: String): Boolean = withContext(Dispatchers.IO) {
         val db = writableDatabase
+        val hashedPassword = hashPassword(password)
         val contentValues = ContentValues().apply {
             put("username", username)
-            put("password", password)
+            put("password", hashedPassword)
             put("email", email)
         }
         try {
@@ -37,20 +40,31 @@ class DBHelper(context: Context) : SQLiteOpenHelper(context, "user.db", null, 1)
             return@withContext (result != -1L)
         } catch (e: Exception) {
             Log.e("DBHelper", "Failed to add user: ${e.message}")
-            Log.e("DBHelper", Log.getStackTraceString(e))  // Log the stack trace for more detailed error information.
+            Log.e("DBHelper", Log.getStackTraceString(e))
             return@withContext false
         } finally {
             db.close()
         }
     }
 
+    fun hashPassword(password: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val hash = digest.digest(password.toByteArray(StandardCharsets.UTF_8))
+        return hash.joinToString("") { "%02x".format(it) }
+    }
+
     fun validateUser(username: String, password: String): Boolean {
         val db = this.readableDatabase
-        val cursor = db.rawQuery("SELECT * FROM users WHERE username=? AND password=?", arrayOf(username, password))
-        val userExists = cursor.moveToFirst()
+        val cursor = db.rawQuery("SELECT password FROM users WHERE username=?", arrayOf(username))
+        if (cursor.moveToFirst()) {
+            val storedPassword = cursor.getString(cursor.getColumnIndexOrThrow("password"))
+            cursor.close()
+            db.close()
+            return storedPassword == hashPassword(password)
+        }
         cursor.close()
         db.close()
-        return userExists
+        return false
     }
 
     fun checkUserExists(username: String): Boolean {

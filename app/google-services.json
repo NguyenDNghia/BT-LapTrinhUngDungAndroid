@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "774602341754",
+    "firebase_url": "https://lab5android-da953-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "lab5android-da953",
+    "storage_bucket": "lab5android-da953.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:774602341754:android:90c46f4d37f547f5d0eac3",
+        "android_client_info": {
+          "package_name": "com.example.giaodienlogin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAIqMW5aqnrz0mPs55AvvYCmjoz23ad7as"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:774602341754:android:46486c0b261929c2d0eac3",
+        "android_client_info": {
+          "package_name": "com.example.myapplication"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAIqMW5aqnrz0mPs55AvvYCmjoz23ad7as"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
